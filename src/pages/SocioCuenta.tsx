@@ -9,11 +9,28 @@ import {
   Button,
   HStack,
   useToast,
+  SimpleGrid,
+  Stat,
+  StatLabel,
+  StatNumber,
+  Card,
+  CardBody,
+  Icon,
 } from "@chakra-ui/react";
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
+import {
+  FiUser,
+  FiCreditCard,
+  FiAlertTriangle,
+  FiDollarSign,
+  FiArrowLeft,
+} from "react-icons/fi";
 
+/* =====================
+   INTERFACES
+===================== */
 interface Credito {
   id: number;
   saldo: number;
@@ -55,26 +72,15 @@ export default function SocioCuenta() {
       try {
         setLoading(true);
         const res = await api.get(`/socios/${cedula}/cuenta`);
-
-        if (isMounted.current) {
-          setData(res.data);
-        }
+        if (isMounted.current) setData(res.data);
       } catch {
-        if (isMounted.current) {
-          toast({
-            title: "Error al cargar la cuenta",
-            status: "error",
-          });
-        }
+        toast({ title: "Error al cargar la cuenta", status: "error" });
       } finally {
-        if (isMounted.current) {
-          setLoading(false);
-        }
+        if (isMounted.current) setLoading(false);
       }
     };
 
     loadData();
-
     return () => {
       isMounted.current = false;
     };
@@ -85,7 +91,6 @@ export default function SocioCuenta() {
 
     try {
       setPayingId(id);
-
       const multa = data.multas.find((m) => m.id === id);
       if (!multa || multa.pagada) return;
 
@@ -95,21 +100,14 @@ export default function SocioCuenta() {
         monto: multa.valor,
       });
 
-      if (isMounted.current) {
-        toast({ title: "Multa pagada", status: "success" });
-        setTimeout(async () => {
-          const res = await api.get(`/socios/${cedula}/cuenta`);
-          if (isMounted.current) setData(res.data);
-        }, 400); // Retraso aumentado para evitar conflictos
-      }
+      toast({ title: "Multa pagada", status: "success" });
+
+      const res = await api.get(`/socios/${cedula}/cuenta`);
+      if (isMounted.current) setData(res.data);
     } catch {
-      if (isMounted.current) {
-        toast({ title: "Error al pagar la multa", status: "error" });
-      }
+      toast({ title: "Error al pagar multa", status: "error" });
     } finally {
-      if (isMounted.current) {
-        setPayingId(null);
-      }
+      setPayingId(null);
     }
   };
 
@@ -126,66 +124,128 @@ export default function SocioCuenta() {
   }
 
   return (
-    <Box maxW="900px" mx="auto" p={8}>
-      <Button mb={4} size="sm" onClick={() => navigate(-1)}>
-        Volver
-      </Button>
-
-      <Heading mb={4}>Cuenta del Socio</Heading>
-
-      <Stack spacing={3}>
-        <Text>
-          <b>Cédula:</b> {data.cedula}
-        </Text>
-        <Text>
-          <b>Nombre:</b> {data.nombre}
-        </Text>
-        <Text>
-          <b>Capital:</b> ${data.capital.toFixed(2)}
-        </Text>
-        <Text>
-          <b>Total Multas:</b> ${data.totalMultas.toFixed(2)}
-        </Text>
-
-        <Divider />
-
-        <Text fontWeight="bold">Multas</Text>
-
-        {data.multas.length === 0 && (
-          <Text color="gray.500">No tiene multas</Text>
-        )}
-
-        {data.multas.map((m) => {
-          const isPagada = Boolean(m.pagada);
-
-          return (
-            <HStack key={m.id} spacing={4}>
-              <Text>
-                Multa #{m.id} – ${m.valor.toFixed(2)}
-              </Text>
-
-              <Button
-                size="sm"
-                colorScheme={isPagada ? "green" : "teal"}
-                isDisabled={isPagada}
-                // isLoading={payingId === m.id} // QUITADO temporalmente para evitar error
-                onClick={() => payMulta(m.id)}
-              >
-                {isPagada ? "Pagada" : "Pagar"}
-              </Button>
-            </HStack>
-          );
-        })}
-
-        <Divider />
-
-        <Badge
-          colorScheme={data.estadoCuenta === "AL_DIA" ? "green" : "red"}
-          width="fit-content"
+    <Box maxW="1200px" mx="auto" p={8}>
+      {/* Header */}
+      <HStack mb={6} spacing={4}>
+        <Button
+          leftIcon={<FiArrowLeft />}
+          size="sm"
+          onClick={() => navigate(-1)}
         >
-          {data.estadoCuenta === "AL_DIA" ? "Al día" : "Tiene deudas"}
-        </Badge>
-      </Stack>
+          Volver
+        </Button>
+        <Heading size="lg">Cuenta del Socio</Heading>
+      </HStack>
+
+      {/* Cards principales */}
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
+        <Card>
+          <CardBody>
+            <Stat>
+              <StatLabel>
+                <HStack>
+                  <Icon as={FiUser} />
+                  <Text>Socio</Text>
+                </HStack>
+              </StatLabel>
+              <StatNumber fontSize="md">{data.nombre}</StatNumber>
+              <Text fontSize="sm" color="gray.500">
+                {data.cedula}
+              </Text>
+            </Stat>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody>
+            <Stat>
+              <StatLabel>
+                <HStack>
+                  <Icon as={FiDollarSign} />
+                  <Text>Capital</Text>
+                </HStack>
+              </StatLabel>
+              <StatNumber>${data.capital.toFixed(2)}</StatNumber>
+            </Stat>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody>
+            <Stat>
+              <StatLabel>
+                <HStack>
+                  <Icon as={FiAlertTriangle} />
+                  <Text>Total Multas</Text>
+                </HStack>
+              </StatLabel>
+              <StatNumber>${data.totalMultas.toFixed(2)}</StatNumber>
+            </Stat>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody>
+            <Stat>
+              <StatLabel>Estado</StatLabel>
+              <Badge
+                mt={2}
+                colorScheme={data.estadoCuenta === "AL_DIA" ? "green" : "red"}
+                fontSize="0.9em"
+                px={3}
+                py={1}
+                borderRadius="md"
+                width="fit-content"
+              >
+                {data.estadoCuenta === "AL_DIA"
+                  ? "AL DÍA"
+                  : "TIENE DEUDAS"}
+              </Badge>
+            </Stat>
+          </CardBody>
+        </Card>
+      </SimpleGrid>
+
+      {/* Multas */}
+      <Card>
+        <CardBody>
+          <Heading size="md" mb={4}>
+            Multas
+          </Heading>
+
+          {data.multas.length === 0 && (
+            <Text color="gray.500">No tiene multas registradas</Text>
+          )}
+
+          <Stack spacing={4}>
+            {data.multas.map((m) => (
+              <HStack
+                key={m.id}
+                justify="space-between"
+                p={3}
+                borderWidth="1px"
+                borderRadius="md"
+              >
+                <HStack>
+                  <Icon as={FiCreditCard} color="orange.400" />
+                  <Text>
+                    Multa #{m.id} — ${m.valor.toFixed(2)}
+                  </Text>
+                </HStack>
+
+                <Button
+                  size="sm"
+                  colorScheme={m.pagada ? "green" : "teal"}
+                  isDisabled={m.pagada}
+                  onClick={() => payMulta(m.id)}
+                >
+                  {m.pagada ? "Pagada" : "Pagar"}
+                </Button>
+              </HStack>
+            ))}
+          </Stack>
+        </CardBody>
+      </Card>
     </Box>
   );
 }

@@ -44,14 +44,12 @@ export default function Multas() {
   // =====================
   // ESTADOS
   // =====================
-  const [vistaHistorial, setVistaHistorial] = useState(false);
+  const [vista, setVista] = useState<'pendientes' | 'historial'>(
+    'pendientes'
+  );
   const [nui, setNui] = useState('');
-  const [dataOriginal, setDataOriginal] = useState<
-    (MultaPendiente | MultaPagada)[]
-  >([]);
-  const [dataFiltrada, setDataFiltrada] = useState<
-    (MultaPendiente | MultaPagada)[]
-  >([]);
+  const [pendientes, setPendientes] = useState<MultaPendiente[]>([]);
+  const [pagadas, setPagadas] = useState<MultaPagada[]>([]);
   const [loading, setLoading] = useState(true);
   const toast = useToast();
 
@@ -61,11 +59,13 @@ export default function Multas() {
   async function cargar() {
     setLoading(true);
     try {
-      const url = vistaHistorial ? '/multas/historial' : '/multas';
-      const res = await api.get(url);
+      const [resPendientes, resPagadas] = await Promise.all([
+        api.get('/multas'),
+        api.get('/multas/historial'),
+      ]);
 
-      setDataOriginal(res.data);
-      setDataFiltrada(res.data);
+      setPendientes(resPendientes.data);
+      setPagadas(resPagadas.data);
     } catch (error) {
       toast({
         title: 'Error al cargar multas',
@@ -75,38 +75,31 @@ export default function Multas() {
     setLoading(false);
   }
 
-  // Cargar cuando cambia la vista
   useEffect(() => {
     cargar();
-    setNui('');
-  }, [vistaHistorial]);
+  }, []);
 
   // =====================
-  // FILTRO PROGRESIVO 🔥
+  // FILTRO
   // =====================
-  useEffect(() => {
-    if (!nui) {
-      setDataFiltrada(dataOriginal);
-      return;
-    }
+  const pendientesFiltradas = pendientes.filter(m =>
+    m.nui.startsWith(nui)
+  );
 
-    const filtrado = dataOriginal.filter((r: any) =>
-      r.nui.startsWith(nui)
-    );
-
-    setDataFiltrada(filtrado);
-  }, [nui, dataOriginal]);
+  const pagadasFiltradas = pagadas.filter(m =>
+    m.nui.startsWith(nui)
+  );
 
   // =====================
   // TOTALES
   // =====================
-  const totalPendiente = dataFiltrada.reduce(
-    (acc, cur: any) => acc + (cur.multa ?? 0),
+  const totalPendiente = pendientesFiltradas.reduce(
+    (acc, m) => acc + Number(m.multa),
     0
   );
 
-  const totalPagado = dataFiltrada.reduce(
-    (acc, cur: any) => acc + (cur.monto ?? 0),
+  const totalPagado = pagadasFiltradas.reduce(
+    (acc, m) => acc + Number(m.monto),
     0
   );
 
@@ -115,23 +108,19 @@ export default function Multas() {
   // =====================
   return (
     <Box p={8}>
-      <Heading mb={6}>
-        {vistaHistorial
-          ? 'Historial de Multas Pagadas'
-          : 'Multas Pendientes'}
-      </Heading>
+      <Heading mb={6}>Gestión de Multas</Heading>
 
       {/* BOTONES */}
-      <Stack direction="row" spacing={4} mb={4}>
+      <Stack direction="row" spacing={4} mb={6}>
         <Button
-          colorScheme={!vistaHistorial ? 'blue' : 'gray'}
-          onClick={() => setVistaHistorial(false)}
+          colorScheme={vista === 'pendientes' ? 'blue' : 'gray'}
+          onClick={() => setVista('pendientes')}
         >
-          Multas
+          Multas Pendientes
         </Button>
         <Button
-          colorScheme={vistaHistorial ? 'blue' : 'gray'}
-          onClick={() => setVistaHistorial(true)}
+          colorScheme={vista === 'historial' ? 'green' : 'gray'}
+          onClick={() => setVista('historial')}
         >
           Historial
         </Button>
@@ -141,64 +130,112 @@ export default function Multas() {
       <Input
         placeholder="Buscar por cédula"
         maxW="300px"
-        mb={4}
+        mb={6}
         value={nui}
         onChange={e => setNui(e.target.value)}
       />
 
-      {/* TABLA */}
       {loading ? (
         <Spinner />
       ) : (
         <>
-          <Table size="sm">
-            <Thead bg="gray.100">
-              <Tr>
-                <Th>Cédula</Th>
-                <Th>Socio</Th>
-                <Th>Fecha</Th>
-                <Th>
-                  {vistaHistorial ? 'Registrado Por' : 'Estado'}
-                </Th>
-                <Th isNumeric>Monto</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {dataFiltrada.map((r: any) => (
-                <Tr key={r.id}>
-                  <Td>{r.nui}</Td>
-                  <Td>{r.socio}</Td>
-                  <Td>
-                    {new Date(
-                      vistaHistorial ? r.fechaPago : r.fecha
-                    ).toLocaleDateString()}
-                  </Td>
-                  <Td>
-                    {vistaHistorial ? (
-                      r.registradoPor || '-'
-                    ) : (
-                      <Badge colorScheme="red">
-                        {r.estado}
-                      </Badge>
-                    )}
-                  </Td>
-                  <Td isNumeric>
-                    ${(r.monto ?? r.multa).toFixed(2)}
-                  </Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
+          {/* =====================
+              MULTAS PENDIENTES
+          ===================== */}
+          {vista === 'pendientes' && (
+            <>
+              <Box bg="red.50" p={4} mb={4} borderRadius="md">
+                <Text fontWeight="bold">Total pendiente</Text>
+                <Text
+                  fontSize="2xl"
+                  fontWeight="bold"
+                  color="red.600"
+                >
+                  $ {totalPendiente.toFixed(2)}
+                </Text>
+              </Box>
 
-          {/* TOTAL */}
-          <Flex justify="flex-end" mt={4} fontWeight="bold">
-            <Text>
-              Total{' '}
-              {vistaHistorial
-                ? `pagado: $${totalPagado.toFixed(2)}`
-                : `pendiente: $${totalPendiente.toFixed(2)}`}
-            </Text>
-          </Flex>
+              <Table size="sm">
+                <Thead bg="gray.100">
+                  <Tr>
+                    <Th>Monto</Th>
+                    <Th>Cédula</Th>
+                    <Th>Socio</Th>
+                    <Th>Fecha</Th>
+                    <Th>Estado</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {pendientesFiltradas.map(m => (
+                    <Tr key={m.id}>
+                      <Td>$ {m.multa.toFixed(2)}</Td>
+                      <Td>{m.nui}</Td>
+                      <Td>{m.socio}</Td>
+                      <Td>
+                        {new Date(m.fecha).toLocaleDateString()}
+                      </Td>
+                      <Td>
+                        <Badge
+                          colorScheme={
+                            m.estado === 'FALTA'
+                              ? 'red'
+                              : 'orange'
+                          }
+                        >
+                          {m.estado}
+                        </Badge>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </>
+          )}
+
+          {/* =====================
+              HISTORIAL
+          ===================== */}
+          {vista === 'historial' && (
+            <>
+              <Box bg="green.50" p={4} mb={4} borderRadius="md">
+                <Text fontWeight="bold">Total pagado</Text>
+                <Text
+                  fontSize="2xl"
+                  fontWeight="bold"
+                  color="green.600"
+                >
+                  $ {totalPagado.toFixed(2)}
+                </Text>
+              </Box>
+
+              <Table size="sm">
+                <Thead bg="gray.100">
+                  <Tr>
+                    <Th>Monto</Th>
+                    <Th>Cédula</Th>
+                    <Th>Socio</Th>
+                    <Th>Fecha</Th>
+                    <Th>Registrado por</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {pagadasFiltradas.map(m => (
+                    <Tr key={m.id}>
+                      <Td>$ {m.monto.toFixed(2)}</Td>
+                      <Td>{m.nui}</Td>
+                      <Td>{m.socio}</Td>
+                      <Td>
+                        {new Date(
+                          m.fechaPago
+                        ).toLocaleDateString()}
+                      </Td>
+                      <Td>{m.registradoPor || '-'}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </>
+          )}
         </>
       )}
     </Box>

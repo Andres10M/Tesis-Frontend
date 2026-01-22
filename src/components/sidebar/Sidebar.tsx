@@ -30,6 +30,21 @@ export default function Sidebar() {
           )}
         </NavLink>
 
+        {/* CUOTAS ✅ */}
+        <NavLink to="/cuotas" style={{ width: "100%" }}>
+          {({ isActive }) => (
+            <Text
+              w="100%"
+              p={2}
+              borderRadius="md"
+              bg={isActive ? "brand.500" : "transparent"}
+              _hover={{ bg: "brand.500" }}
+            >
+              Cuotas
+            </Text>
+          )}
+        </NavLink>
+
         {/* REUNIONES */}
         <NavLink to="/reuniones" style={{ width: "100%" }}>
           {({ isActive }) => (

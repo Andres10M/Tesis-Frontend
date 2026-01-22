@@ -24,10 +24,16 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import { useNavigate } from "react-router-dom";
 
+// 👇 AGREGAMOS INTERFACE (NO AFECTA NADA)
+interface Reunion {
+  id: number;
+  fecha: string;
+}
+
 export default function Reuniones() {
-  const [reuniones, setReuniones] = useState<any[]>([]);
+  const [reuniones, setReuniones] = useState<Reunion[]>([]);
   const [fecha, setFecha] = useState("");
-  const [reunionAEliminar, setReunionAEliminar] = useState<any>(null);
+  const [reunionAEliminar, setReunionAEliminar] = useState<Reunion | null>(null);
 
   const toast = useToast();
   const navigate = useNavigate();
@@ -151,7 +157,6 @@ export default function Reuniones() {
 
               <Td textAlign="right">
                 <HStack justify="flex-end">
-                  {/* ORDEN SOLICITADO */}
                   <Button
                     size="sm"
                     colorScheme="teal"
@@ -210,7 +215,7 @@ export default function Reuniones() {
                 {reunionAEliminar &&
                   formatearFecha(reunionAEliminar.fecha)}
               </b>
-              ?  
+              ?
               <br />
               Esta acción no se puede deshacer.
             </AlertDialogBody>
