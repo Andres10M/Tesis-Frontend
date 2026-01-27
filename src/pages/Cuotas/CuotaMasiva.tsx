@@ -16,6 +16,14 @@ import {
   Button,
   useToast,
   Divider,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
+  Text,
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -25,50 +33,77 @@ export default function CuotaMasiva() {
   const { id } = useParams();
   const toast = useToast();
   const navigate = useNavigate();
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [reunion, setReunion] = useState<any>(null);
   const [socios, setSocios] = useState<any[]>([]);
   const [pagos2, setPagos2] = useState<Record<string, boolean>>({});
   const [pagos20, setPagos20] = useState<Record<string, boolean>>({});
 
-  // ===============================
-  // CARGA INICIAL
-  // ===============================
+  const [pendiente, setPendiente] = useState<{
+    tipo: "2" | "20";
+    nui: string;
+  } | null>(null);
+
   useEffect(() => {
     cargarTodo();
   }, []);
 
   const cargarTodo = async () => {
-    const reunionRes = await api.get(`/meetings/${id}`);
-    const sociosRes = await api.get("/person");
-    const cuotasRes = await api.get(`/cuotas/reunion/${id}`);
+    try {
+      const [reunionRes, sociosRes, cuotasRes] = await Promise.all([
+        api.get(`/meetings/${id}`),
+        api.get("/person"),
+        api.get(`/cuotas/reunion/${id}`),
+      ]);
 
-    setReunion(reunionRes.data);
-    setSocios(sociosRes.data);
+      setReunion(reunionRes.data);
+      setSocios(sociosRes.data);
 
-    const init2: Record<string, boolean> = {};
-    const init20: Record<string, boolean> = {};
+      const init2: Record<string, boolean> = {};
+      const init20: Record<string, boolean> = {};
 
-    sociosRes.data.forEach((s: any) => {
-      init2[s.nui] = false;
-      init20[s.nui] = false;
-    });
+      // 🔥 detectar si es reunión nueva
+      const tienePagos = cuotasRes.data.some((c: any) => c.pagado);
 
-    cuotasRes.data.forEach((c: any) => {
-      if (c.tipo === "APORTE_2") init2[c.socioId] = c.pagado;
-      if (c.tipo === "CUOTA_20") init20[c.socioId] = c.pagado;
-    });
+      // 🔥 inicializar
+      sociosRes.data.forEach((s: any) => {
+        init2[s.nui] = !tienePagos;
+        init20[s.nui] = !tienePagos;
+      });
 
-    setPagos2(init2);
-    setPagos20(init20);
+      // 🔥 respetar base de datos si ya hubo pagos
+      if (tienePagos) {
+        cuotasRes.data.forEach((c: any) => {
+          if (c.pagado) {
+            if (c.tipo === "APORTE_2") init2[c.socioId] = true;
+            if (c.tipo === "CUOTA_20") init20[c.socioId] = true;
+          }
+        });
+      }
+
+      setPagos2(init2);
+      setPagos20(init20);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la información",
+        status: "error",
+      });
+    }
   };
 
-  // ===============================
-  // TOGGLE CHECKS (REACTIVO)
-  // ===============================
   const togglePago = (tipo: "2" | "20", nui: string, value: boolean) => {
-    if (!value && !confirm("¿Seguro que deseas quitar este pago?")) return;
+    if (!value) {
+      setPendiente({ tipo, nui });
+      onOpen();
+      return;
+    }
 
+    aplicarCambio(tipo, nui, true);
+  };
+
+  const aplicarCambio = (tipo: "2" | "20", nui: string, value: boolean) => {
     if (tipo === "2") {
       setPagos2((prev) => ({ ...prev, [nui]: value }));
     } else {
@@ -76,9 +111,13 @@ export default function CuotaMasiva() {
     }
   };
 
-  // ===============================
-  // GUARDAR EN BD
-  // ===============================
+  const confirmarQuitar = () => {
+    if (!pendiente) return;
+    aplicarCambio(pendiente.tipo, pendiente.nui, false);
+    setPendiente(null);
+    onClose();
+  };
+
   const guardarTodo = async () => {
     await api.post("/cuotas/masiva", {
       meetingId: Number(id),
@@ -95,13 +134,9 @@ export default function CuotaMasiva() {
     toast({
       title: "Pagos guardados correctamente",
       status: "success",
-      duration: 2000,
     });
   };
 
-  // ===============================
-  // 🔥 TOTALES EN TIEMPO REAL
-  // ===============================
   const total2 = Object.values(pagos2).filter(Boolean).length;
   const total20 = Object.values(pagos20).filter(Boolean).length;
 
@@ -109,9 +144,6 @@ export default function CuotaMasiva() {
     ? new Date(reunion.fecha).toLocaleDateString("es-ES")
     : "";
 
-  // ===============================
-  // RENDER
-  // ===============================
   return (
     <Box p={8}>
       <Button mb={4} variant="ghost" onClick={() => navigate(-1)}>
@@ -140,7 +172,7 @@ export default function CuotaMasiva() {
             <Th>Socio</Th>
             <Th textAlign="center">$2</Th>
             <Th textAlign="center">$20</Th>
-            <Th textAlign="center">OK</Th>
+            <Th textAlign="center">Estado</Th>
           </Tr>
         </Thead>
 
@@ -151,13 +183,11 @@ export default function CuotaMasiva() {
             return (
               <Tr key={s.nui}>
                 <Td>{s.nui}</Td>
-                <Td>
-                  {s.firstname} {s.lastname}
-                </Td>
+                <Td>{s.firstname} {s.lastname}</Td>
 
                 <Td textAlign="center">
                   <Checkbox
-                    isChecked={!!pagos2[s.nui]}
+                    isChecked={pagos2[s.nui]}
                     onChange={(e) =>
                       togglePago("2", s.nui, e.target.checked)
                     }
@@ -166,7 +196,7 @@ export default function CuotaMasiva() {
 
                 <Td textAlign="center">
                   <Checkbox
-                    isChecked={!!pagos20[s.nui]}
+                    isChecked={pagos20[s.nui]}
                     onChange={(e) =>
                       togglePago("20", s.nui, e.target.checked)
                     }
@@ -174,7 +204,9 @@ export default function CuotaMasiva() {
                 </Td>
 
                 <Td textAlign="center">
-                  <Badge colorScheme={ok ? "green" : "red"}>OK</Badge>
+                  <Badge colorScheme={ok ? "green" : "red"}>
+                    {ok ? "OK" : "NO"}
+                  </Badge>
                 </Td>
               </Tr>
             );
@@ -185,6 +217,25 @@ export default function CuotaMasiva() {
       <Button mt={6} colorScheme="blue" size="lg" onClick={guardarTodo}>
         Guardar cuentas
       </Button>
+
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Confirmar cambio</ModalHeader>
+          <ModalBody>
+            <Text>
+              ¿Seguro que deseas quitar este pago?  
+              Esto quedará como pendiente.
+            </Text>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onClose}>Cancelar</Button>
+            <Button colorScheme="red" onClick={confirmarQuitar} ml={3}>
+              Sí, quitar
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }
