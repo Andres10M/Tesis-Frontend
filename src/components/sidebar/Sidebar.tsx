@@ -30,7 +30,7 @@ export default function Sidebar() {
           )}
         </NavLink>
 
-        {/* CUOTAS ✅ */}
+        {/* CUOTAS */}
         <NavLink to="/cuotas" style={{ width: "100%" }}>
           {({ isActive }) => (
             <Text
@@ -41,6 +41,21 @@ export default function Sidebar() {
               _hover={{ bg: "brand.500" }}
             >
               Cuotas
+            </Text>
+          )}
+        </NavLink>
+
+        {/* CRÉDITOS ESPECIALES ✅ */}
+        <NavLink to="/creditos-especiales" style={{ width: "100%" }}>
+          {({ isActive }) => (
+            <Text
+              w="100%"
+              p={2}
+              borderRadius="md"
+              bg={isActive ? "brand.500" : "transparent"}
+              _hover={{ bg: "brand.500" }}
+            >
+              Créditos Especiales
             </Text>
           )}
         </NavLink>

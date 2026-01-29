@@ -5,24 +5,25 @@ import {
   Input,
   Button,
   VStack,
-} from "@chakra-ui/react";
-import { useEffect, useState } from "react";
-import { obtenerSocios, registrarCuotaIngreso } from "../../services/cuotas.api";
-import type { Socio } from "../../types/cuota";
+} from '@chakra-ui/react';
+import { useEffect, useState } from 'react';
+import { obtenerPendientesIngreso, registrarCuotaIngreso } from '../../services/cuotas.api';
+import type { Socio } from '../../types/cuota';
 
 export default function CuotaIngreso() {
   const [socios, setSocios] = useState<Socio[]>([]);
-  const [socio, setSocio] = useState("");
-  const [monto, setMonto] = useState(5000);
+  const [socio, setSocio] = useState('');
+  const [monto, setMonto] = useState(275); // monto por defecto 275
 
   useEffect(() => {
-    obtenerSocios().then(setSocios);
+    obtenerPendientesIngreso().then(setSocios);
   }, []);
 
   const guardar = async () => {
-    if (!socio) return alert("Seleccione socio");
+    if (!socio) return alert('Seleccione socio');
     await registrarCuotaIngreso(socio, monto);
-    alert("Cuota de ingreso registrada");
+    alert('Cuota de ingreso registrada y socio activado');
+    setSocio(''); // limpiar selección
   };
 
   return (
@@ -48,6 +49,7 @@ export default function CuotaIngreso() {
           type="number"
           value={monto}
           onChange={(e) => setMonto(Number(e.target.value))}
+          min={275}
         />
 
         <Button colorScheme="purple" onClick={guardar}>
