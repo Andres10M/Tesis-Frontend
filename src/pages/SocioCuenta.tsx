@@ -5,7 +5,7 @@ import {
   Spinner,
   Stack,
   Badge,
-  Divider,
+  
   Button,
   HStack,
   useToast,
@@ -201,11 +201,11 @@ export default function SocioCuenta() {
   const totalGeneralCreditos =
     totalCreditosNormales + totalCreditosEspeciales;
 
-  const esSocioNuevo =
+  /*const esSocioNuevo =
     data.capital === 0 &&
     data.creditos.length === 0 &&
     data.creditosEspeciales.length === 0 &&
-    data.multas.length === 0;
+    data.multas.length === 0;*/
 
   /* =====================
      RENDER

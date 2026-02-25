@@ -8,7 +8,6 @@ import {
   Th,
   Td,
   Button,
-  HStack,
   Text,
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
