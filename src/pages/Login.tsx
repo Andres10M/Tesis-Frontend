@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/api";
+import logo from "../assets/logo.png.jpeg";
 
 // 👉 contenedor animado
 const MotionBox = motion(Box);
@@ -55,14 +56,13 @@ export default function Login() {
       >
         <VStack spacing={5}>
           {/* LOGO */}
-          <Image
-            src="/src/assets/logo.png.jpeg"
+         <Image
+            src={logo}
             alt="Cooperativa San Juan"
             boxSize="250px"
             objectFit="contain"
             mb={2}
           />
-
           <Heading size="md" textAlign="center">
             Administración
           </Heading>
