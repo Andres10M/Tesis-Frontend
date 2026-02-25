@@ -50,47 +50,32 @@ export default function CuotaMasiva() {
   }, []);
 
   const cargarTodo = async () => {
-    try {
-      const [reunionRes, sociosRes, cuotasRes] = await Promise.all([
-        api.get(`/meetings/${id}`),
-        api.get("/person"),
-        api.get(`/cuotas/reunion/${id}`),
-      ]);
+    const [reunionRes, sociosRes, cuotasRes] = await Promise.all([
+      api.get(`/meetings/${id}`),
+      api.get("/person"),
+      api.get(`/cuotas/reunion/${id}`),
+    ]);
 
-      setReunion(reunionRes.data);
-      setSocios(sociosRes.data);
+    setReunion(reunionRes.data);
+    setSocios(sociosRes.data);
 
-      const init2: Record<string, boolean> = {};
-      const init20: Record<string, boolean> = {};
+    const init2: Record<string, boolean> = {};
+    const init20: Record<string, boolean> = {};
 
-      // 🔥 detectar si es reunión nueva
-      const tienePagos = cuotasRes.data.some((c: any) => c.pagado);
+    sociosRes.data.forEach((s: any) => {
+      init2[s.nui] = false;
+      init20[s.nui] = false;
+    });
 
-      // 🔥 inicializar
-      sociosRes.data.forEach((s: any) => {
-        init2[s.nui] = !tienePagos;
-        init20[s.nui] = !tienePagos;
-      });
-
-      // 🔥 respetar base de datos si ya hubo pagos
-      if (tienePagos) {
-        cuotasRes.data.forEach((c: any) => {
-          if (c.pagado) {
-            if (c.tipo === "APORTE_2") init2[c.socioId] = true;
-            if (c.tipo === "CUOTA_20") init20[c.socioId] = true;
-          }
-        });
+    cuotasRes.data.forEach((c: any) => {
+      if (c.pagado) {
+        if (c.tipo === "APORTE_2") init2[c.socioId] = true;
+        if (c.tipo === "CUOTA_20") init20[c.socioId] = true;
       }
+    });
 
-      setPagos2(init2);
-      setPagos20(init20);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo cargar la información",
-        status: "error",
-      });
-    }
+    setPagos2(init2);
+    setPagos20(init20);
   };
 
   const togglePago = (tipo: "2" | "20", nui: string, value: boolean) => {
@@ -99,7 +84,6 @@ export default function CuotaMasiva() {
       onOpen();
       return;
     }
-
     aplicarCambio(tipo, nui, true);
   };
 
@@ -121,14 +105,8 @@ export default function CuotaMasiva() {
   const guardarTodo = async () => {
     await api.post("/cuotas/masiva", {
       meetingId: Number(id),
-      tipo: "APORTE_2",
-      sociosPagados: Object.keys(pagos2).filter((n) => pagos2[n]),
-    });
-
-    await api.post("/cuotas/masiva", {
-      meetingId: Number(id),
-      tipo: "CUOTA_20",
-      sociosPagados: Object.keys(pagos20).filter((n) => pagos20[n]),
+      pagos2,
+      pagos20,
     });
 
     toast({
@@ -187,6 +165,14 @@ export default function CuotaMasiva() {
 
                 <Td textAlign="center">
                   <Checkbox
+                    colorScheme="blue"
+                    size="lg"
+                    sx={{
+                      span: {
+                        borderColor: "gray.400",
+                        bg: "gray.100",
+                      },
+                    }}
                     isChecked={pagos2[s.nui]}
                     onChange={(e) =>
                       togglePago("2", s.nui, e.target.checked)
@@ -196,6 +182,14 @@ export default function CuotaMasiva() {
 
                 <Td textAlign="center">
                   <Checkbox
+                    colorScheme="blue"
+                    size="lg"
+                    sx={{
+                      span: {
+                        borderColor: "gray.400",
+                        bg: "gray.100",
+                      },
+                    }}
                     isChecked={pagos20[s.nui]}
                     onChange={(e) =>
                       togglePago("20", s.nui, e.target.checked)
@@ -224,8 +218,7 @@ export default function CuotaMasiva() {
           <ModalHeader>Confirmar cambio</ModalHeader>
           <ModalBody>
             <Text>
-              ¿Seguro que deseas quitar este pago?  
-              Esto quedará como pendiente.
+              ¿Seguro que deseas quitar este pago?
             </Text>
           </ModalBody>
           <ModalFooter>

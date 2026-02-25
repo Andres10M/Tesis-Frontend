@@ -27,19 +27,33 @@ import {
   FiDollarSign,
   FiArrowLeft,
 } from "react-icons/fi";
+import { motion } from "framer-motion";
 
 /* =====================
    INTERFACES
 ===================== */
+
 interface Credito {
   id: number;
-  saldo: number;
+  monto: number;
+  estado: string;
+  fecha: string | null;
+}
+
+interface CreditoEspecial {
+  id: number;
+  monto: number;
+  interes: number;
+  total: number;
+  fecha: string;
+  pagado: boolean;
 }
 
 interface Multa {
   id: number;
   valor: number;
   pagada: boolean;
+  fecha: string;
 }
 
 interface SocioCuentaData {
@@ -47,21 +61,41 @@ interface SocioCuentaData {
   nombre: string;
   capital: number;
   creditos: Credito[];
+  creditosEspeciales: CreditoEspecial[];
   multas: Multa[];
   totalMultas: number;
   estadoCuenta: "AL_DIA" | "DEUDA";
 }
+
+/* =====================
+   COMPONENT
+===================== */
+
+const MotionBox = motion(Box);
 
 export default function SocioCuenta() {
   const { cedula } = useParams<{ cedula: string }>();
   const navigate = useNavigate();
   const toast = useToast();
 
-  const [data, setData] = useState<SocioCuentaData | null>(null);
+  const [data, setData] = useState<SocioCuentaData>({
+    cedula: "",
+    nombre: "",
+    capital: 0,
+    creditos: [],
+    creditosEspeciales: [],
+    multas: [],
+    totalMultas: 0,
+    estadoCuenta: "AL_DIA",
+  });
+
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState<number | null>(null);
-
   const isMounted = useRef(true);
+
+  /* =====================
+     LOAD DATA
+  ===================== */
 
   useEffect(() => {
     isMounted.current = true;
@@ -72,25 +106,42 @@ export default function SocioCuenta() {
       try {
         setLoading(true);
         const res = await api.get(`/socios/${cedula}/cuenta`);
-        if (isMounted.current) setData(res.data);
+
+        if (isMounted.current) {
+          setData({
+            ...res.data,
+            creditos: res.data.creditos || [],
+            creditosEspeciales: res.data.creditosEspeciales || [],
+            multas: res.data.multas || [],
+          });
+        }
       } catch {
-        toast({ title: "Error al cargar la cuenta", status: "error" });
+        toast({
+          title: "Error al cargar la cuenta",
+          status: "error",
+        });
       } finally {
         if (isMounted.current) setLoading(false);
       }
     };
 
     loadData();
+
     return () => {
       isMounted.current = false;
     };
   }, [cedula, toast]);
 
+  /* =====================
+     PAGAR MULTA
+  ===================== */
+
   const payMulta = async (id: number) => {
-    if (!data || !cedula) return;
+    if (!cedula) return;
 
     try {
       setPayingId(id);
+
       const multa = data.multas.find((m) => m.id === id);
       if (!multa || multa.pagada) return;
 
@@ -100,12 +151,26 @@ export default function SocioCuenta() {
         monto: multa.valor,
       });
 
-      toast({ title: "Multa pagada", status: "success" });
+      toast({
+        title: "Multa pagada correctamente",
+        status: "success",
+      });
 
       const res = await api.get(`/socios/${cedula}/cuenta`);
-      if (isMounted.current) setData(res.data);
+
+      if (isMounted.current) {
+        setData({
+          ...res.data,
+          creditos: res.data.creditos || [],
+          creditosEspeciales: res.data.creditosEspeciales || [],
+          multas: res.data.multas || [],
+        });
+      }
     } catch {
-      toast({ title: "Error al pagar multa", status: "error" });
+      toast({
+        title: "Error al pagar multa",
+        status: "error",
+      });
     } finally {
       setPayingId(null);
     }
@@ -119,13 +184,43 @@ export default function SocioCuenta() {
     );
   }
 
-  if (!data) {
-    return <Text p={10}>No se pudo cargar la cuenta</Text>;
-  }
+  /* =====================
+     CALCULOS
+  ===================== */
+
+  const totalCreditosNormales = data.creditos.reduce(
+    (sum, c) => sum + c.monto,
+    0
+  );
+
+  const totalCreditosEspeciales = data.creditosEspeciales.reduce(
+    (sum, c) => sum + c.total,
+    0
+  );
+
+  const totalGeneralCreditos =
+    totalCreditosNormales + totalCreditosEspeciales;
+
+  const esSocioNuevo =
+    data.capital === 0 &&
+    data.creditos.length === 0 &&
+    data.creditosEspeciales.length === 0 &&
+    data.multas.length === 0;
+
+  /* =====================
+     RENDER
+  ===================== */
 
   return (
-    <Box maxW="1200px" mx="auto" p={8}>
-      {/* Header */}
+    <MotionBox
+      maxW="1200px"
+      mx="auto"
+      p={8}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      {/* HEADER */}
       <HStack mb={6} spacing={4}>
         <Button
           leftIcon={<FiArrowLeft />}
@@ -134,11 +229,14 @@ export default function SocioCuenta() {
         >
           Volver
         </Button>
-        <Heading size="lg">Cuenta del Socio</Heading>
+
+        <Heading size="lg">
+          Resumen de Cuenta del Socio
+        </Heading>
       </HStack>
 
-      {/* Cards principales */}
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
+      {/* RESUMEN EJECUTIVO */}
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 5 }} spacing={6} mb={10}>
         <Card>
           <CardBody>
             <Stat>
@@ -148,7 +246,9 @@ export default function SocioCuenta() {
                   <Text>Socio</Text>
                 </HStack>
               </StatLabel>
-              <StatNumber fontSize="md">{data.nombre}</StatNumber>
+              <StatNumber fontSize="md">
+                {data.nombre}
+              </StatNumber>
               <Text fontSize="sm" color="gray.500">
                 {data.cedula}
               </Text>
@@ -165,7 +265,25 @@ export default function SocioCuenta() {
                   <Text>Capital</Text>
                 </HStack>
               </StatLabel>
-              <StatNumber>${data.capital.toFixed(2)}</StatNumber>
+              <StatNumber>
+                ${data.capital.toFixed(2)}
+              </StatNumber>
+            </Stat>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody>
+            <Stat>
+              <StatLabel>
+                <HStack>
+                  <Icon as={FiCreditCard} />
+                  <Text>Créditos Totales</Text>
+                </HStack>
+              </StatLabel>
+              <StatNumber>
+                ${totalGeneralCreditos.toFixed(2)}
+              </StatNumber>
             </Stat>
           </CardBody>
         </Card>
@@ -176,10 +294,12 @@ export default function SocioCuenta() {
               <StatLabel>
                 <HStack>
                   <Icon as={FiAlertTriangle} />
-                  <Text>Total Multas</Text>
+                  <Text>Multas</Text>
                 </HStack>
               </StatLabel>
-              <StatNumber>${data.totalMultas.toFixed(2)}</StatNumber>
+              <StatNumber>
+                ${data.totalMultas.toFixed(2)}
+              </StatNumber>
             </Stat>
           </CardBody>
         </Card>
@@ -190,12 +310,14 @@ export default function SocioCuenta() {
               <StatLabel>Estado</StatLabel>
               <Badge
                 mt={2}
-                colorScheme={data.estadoCuenta === "AL_DIA" ? "green" : "red"}
-                fontSize="0.9em"
+                colorScheme={
+                  data.estadoCuenta === "AL_DIA"
+                    ? "green"
+                    : "red"
+                }
                 px={3}
                 py={1}
                 borderRadius="md"
-                width="fit-content"
               >
                 {data.estadoCuenta === "AL_DIA"
                   ? "AL DÍA"
@@ -206,46 +328,149 @@ export default function SocioCuenta() {
         </Card>
       </SimpleGrid>
 
-      {/* Multas */}
+      {/* CREDITOS */}
+      <Card mb={8}>
+        <CardBody>
+          <Heading size="md" mb={4}>
+            Créditos del Socio
+          </Heading>
+
+          {data.creditos.length === 0 &&
+          data.creditosEspeciales.length === 0 ? (
+            <Text color="gray.500">
+              El socio no registra créditos.
+            </Text>
+          ) : (
+            <Stack spacing={4}>
+              {data.creditos.map((c) => (
+                <HStack
+                  key={`normal-${c.id}`}
+                  justify="space-between"
+                  p={4}
+                  borderWidth="1px"
+                  borderRadius="md"
+                >
+                  <Box>
+                    <Text fontWeight="bold">
+                      Crédito Ordinario #{c.id}
+                    </Text>
+                    <Text fontSize="sm" color="gray.500">
+                      Fecha:{" "}
+                      {c.fecha
+                        ? new Date(c.fecha).toLocaleDateString("es-EC")
+                        : "Sin fecha"}
+                    </Text>
+                  </Box>
+
+                  <Stack align="end">
+                    <Badge
+                      colorScheme={
+                        c.estado === "PAGADO"
+                          ? "green"
+                          : c.estado === "ACTIVO"
+                          ? "orange"
+                          : "red"
+                      }
+                    >
+                      {c.estado}
+                    </Badge>
+
+                    <Text fontWeight="bold">
+                      ${c.monto.toFixed(2)}
+                    </Text>
+                  </Stack>
+                </HStack>
+              ))}
+
+              {data.creditosEspeciales.map((c) => (
+                <HStack
+                  key={`especial-${c.id}`}
+                  justify="space-between"
+                  p={4}
+                  borderWidth="1px"
+                  borderRadius="md"
+                  bg="blue.50"
+                >
+                  <Box>
+                    <Text fontWeight="bold">
+                      Crédito Especial #{c.id}
+                    </Text>
+                    <Text fontSize="sm" color="gray.600">
+                      Fecha:{" "}
+                      {new Date(c.fecha).toLocaleDateString("es-EC")}
+                    </Text>
+                  </Box>
+
+                  <Badge
+                    colorScheme={c.pagado ? "green" : "blue"}
+                  >
+                    ${c.total.toFixed(2)}{" "}
+                    ({c.pagado ? "Pagado" : "Pendiente"})
+                  </Badge>
+                </HStack>
+              ))}
+            </Stack>
+          )}
+        </CardBody>
+      </Card>
+
+      {/* MULTAS */}
       <Card>
         <CardBody>
           <Heading size="md" mb={4}>
             Multas
           </Heading>
 
-          {data.multas.length === 0 && (
-            <Text color="gray.500">No tiene multas registradas</Text>
-          )}
-
-          <Stack spacing={4}>
-            {data.multas.map((m) => (
-              <HStack
-                key={m.id}
-                justify="space-between"
-                p={3}
-                borderWidth="1px"
-                borderRadius="md"
-              >
-                <HStack>
-                  <Icon as={FiCreditCard} color="orange.400" />
-                  <Text>
-                    Multa #{m.id} — ${m.valor.toFixed(2)}
-                  </Text>
-                </HStack>
-
-                <Button
-                  size="sm"
-                  colorScheme={m.pagada ? "green" : "teal"}
-                  isDisabled={m.pagada}
-                  onClick={() => payMulta(m.id)}
+          {data.multas.length === 0 ? (
+            <Text color="gray.500">
+              El socio no tiene multas registradas.
+            </Text>
+          ) : (
+            <Stack spacing={4}>
+              {data.multas.map((m) => (
+                <HStack
+                  key={m.id}
+                  justify="space-between"
+                  p={3}
+                  borderWidth="1px"
+                  borderRadius="md"
                 >
-                  {m.pagada ? "Pagada" : "Pagar"}
-                </Button>
-              </HStack>
-            ))}
-          </Stack>
+                  <HStack>
+                    <Icon
+                      as={FiAlertTriangle}
+                      color="orange.400"
+                    />
+                    <Text>
+                      ${m.valor.toFixed(2)} —{" "}
+                      {new Date(m.fecha).toLocaleDateString(
+                        "es-EC"
+                      )}
+                    </Text>
+                  </HStack>
+
+                  <Button
+                    size="sm"
+                    colorScheme={
+                      m.pagada ? "green" : "teal"
+                    }
+                    isDisabled={
+                      m.pagada ||
+                      payingId === m.id
+                    }
+                    onClick={() =>
+                      payMulta(m.id)
+                    }
+                  >
+                    {m.pagada
+                      ? "Pagada"
+                      : "Pagar"}
+                  </Button>
+                </HStack>
+              ))}
+            </Stack>
+          )}
         </CardBody>
       </Card>
-    </Box>
+    </MotionBox>
   );
 }

@@ -19,21 +19,16 @@ interface Reunion {
   fecha: string;
 }
 
-export default function CreditosEspeciales() {
+export default function CreditosEspecialesList() {
   const [reuniones, setReuniones] = useState<Reunion[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get("/meetings").then((res) => {
-      setReuniones(res.data);
-    });
+    api.get("/meetings").then(res => setReuniones(res.data));
   }, []);
 
-  const formatearFecha = (fecha: string) => {
-    const f = new Date(fecha);
-    f.setMinutes(f.getMinutes() - f.getTimezoneOffset());
-    return f.toLocaleDateString("es-EC");
-  };
+  const fecha = (f: string) =>
+    new Date(f).toLocaleDateString("es-EC");
 
   return (
     <Box p={8}>
@@ -42,7 +37,7 @@ export default function CreditosEspeciales() {
       <Table variant="simple">
         <Thead bg="gray.100">
           <Tr>
-            <Th>Fecha de reunión</Th>
+            <Th>Fecha</Th>
             <Th textAlign="right">Acción</Th>
           </Tr>
         </Thead>
@@ -52,15 +47,15 @@ export default function CreditosEspeciales() {
             <Tr>
               <Td colSpan={2}>
                 <Text textAlign="center" color="gray.500">
-                  No hay reuniones registradas
+                  No hay reuniones
                 </Text>
               </Td>
             </Tr>
           )}
 
-          {reuniones.map((r) => (
+          {reuniones.map(r => (
             <Tr key={r.id}>
-              <Td>{formatearFecha(r.fecha)}</Td>
+              <Td>{fecha(r.fecha)}</Td>
               <Td textAlign="right">
                 <Button
                   size="sm"
@@ -69,7 +64,7 @@ export default function CreditosEspeciales() {
                     navigate(`/creditos-especiales/${r.id}`)
                   }
                 >
-                  Ver hoja
+                  Abrir hoja
                 </Button>
               </Td>
             </Tr>

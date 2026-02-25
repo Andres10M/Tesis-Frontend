@@ -1,6 +1,14 @@
 import { Routes, Route } from "react-router-dom";
 import Layout from "./components/layout/Layout";
+import ProtectedRoute from "./components/ProtectedRoute";
 
+// 🔐 LOGIN
+import Login from "./pages/Login";
+
+// 🆕 DASHBOARD
+import DashboardPage from "./pages/DashboardPage";
+
+// PÁGINAS
 import Reuniones from "./pages/Reuniones";
 import Asistencia from "./pages/Asistencia";
 import OrdenDia from "./pages/OrdenDia";
@@ -14,16 +22,30 @@ import CuotasList from "./pages/CuotasList";
 import CuotaMasiva from "./pages/Cuotas/CuotaMasiva";
 import CuotaIngreso from "./pages/Cuotas/CuotaIngreso";
 
-// 👉 CRÉDITOS ESPECIALES
-import CreditosEspeciales from "./pages/CreditosEspeciales";
+// CRÉDITOS ESPECIALES
+import CreditosEspecialesList from "./pages/CreditosEspeciales";
 import CreditosEspecialesReunion from "./pages/CreditosEspecialesReunion";
 
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<SociosList />} />
+      {/* 🔓 RUTA PÚBLICA */}
+      <Route path="/login" element={<Login />} />
+
+      {/* 🔐 TODO LO DEMÁS PROTEGIDO */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        {/* 🆕 DASHBOARD */}
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+
         <Route path="/socios" element={<SociosList />} />
+
         <Route
           path="/socios/:cedula/cuenta"
           element={<SocioCuenta />}
@@ -47,10 +69,10 @@ export default function AppRoutes() {
         <Route path="/cuotas/:id" element={<CuotaMasiva />} />
         <Route path="/cuotas/ingreso" element={<CuotaIngreso />} />
 
-        {/* ✅ CRÉDITOS ESPECIALES */}
+        {/* CRÉDITOS ESPECIALES */}
         <Route
           path="/creditos-especiales"
-          element={<CreditosEspeciales />}
+          element={<CreditosEspecialesList />}
         />
         <Route
           path="/creditos-especiales/:id"

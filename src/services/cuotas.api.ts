@@ -32,7 +32,7 @@ export async function registrarCuotaIngreso(
   });
 }
 
-// Obtener socios pendientes de pago de cuota de ingreso (status: false)
+// Obtener socios pendientes de pago de cuota de ingreso
 export async function obtenerPendientesIngreso() {
   const { data } = await api.get("/cuotas/ingreso/pendientes");
   return data;
