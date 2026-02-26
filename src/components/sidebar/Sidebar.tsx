@@ -1,7 +1,7 @@
 import { Box, VStack, Text, Image } from "@chakra-ui/react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import hojaImg from "../assets/hoja.png";
+
 
 const MotionBox = motion(Box);
 const MotionText = motion(Text);
@@ -39,12 +39,12 @@ export default function Sidebar() {
           transition={{ delay: 0.2, duration: 0.4 }}
           whileHover={{ scale: 1.05 }}
         >
-          <Image
-  src={hojaImg}
-  alt="Cooperativa San Juan"
-  boxSize="72px"
-  objectFit="contain"
-/>
+ <Image
+            src="/assets/hoja.png"  
+            alt="Cooperativa San Juan"
+            boxSize="72px"
+            objectFit="contain"
+          />
         </MotionBox>
 
         <MotionText
