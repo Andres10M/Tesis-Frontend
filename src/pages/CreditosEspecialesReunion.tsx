@@ -42,6 +42,9 @@ export default function CreditosEspecialesReunion() {
   const [modalConfirmOpen, setModalConfirmOpen] = useState(false);
   const [filaConfirm, setFilaConfirm] = useState<number | null>(null);
 
+  // 🔴 NUEVO ESTADO PARA VALIDACIÓN
+  const [modalErrorOpen, setModalErrorOpen] = useState(false);
+
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -194,6 +197,13 @@ export default function CreditosEspecialesReunion() {
   const totalPendiente = totalGeneral - totalPagado;
 
   const guardar = async () => {
+
+    // 🔴 VALIDACIÓN AGREGADA
+    if (Number(totalMonto.toFixed(2)) !== Number(acumulado.toFixed(2))) {
+      setModalErrorOpen(true);
+      return;
+    }
+
     try {
       await fetch(`${API}/creditos-especiales/guardar-hoja`, {
         method: "POST",
@@ -356,6 +366,29 @@ export default function CreditosEspecialesReunion() {
       </div>
 
       {mensaje && <div style={toast}>{mensaje}</div>}
+
+      {/* 🔴 MODAL DE ERROR AGREGADO */}
+      {modalErrorOpen && (
+        <div style={modalOverlay}>
+          <div style={modal}>
+            <h3 style={{ color: "#dc3545" }}>Operación no permitida</h3>
+            <p>El monto total repartido no coincide con el acumulado anterior.</p>
+            <p>Todo el dinero debe repartirse completamente. No puede sobrar ni faltar dinero.</p>
+            <div style={{ marginTop: 10 }}>
+              <b>Acumulado:</b> ${acumulado.toFixed(2)} <br />
+              <b>Total repartido:</b> ${totalMonto.toFixed(2)}
+            </div>
+            <div style={{ textAlign: "right", marginTop: 20 }}>
+              <button
+                style={btnPrimary}
+                onClick={() => setModalErrorOpen(false)}
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modalMontoOpen && (
         <div style={modalOverlay}>
