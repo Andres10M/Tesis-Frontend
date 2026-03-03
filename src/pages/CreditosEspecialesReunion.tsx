@@ -42,9 +42,6 @@ export default function CreditosEspecialesReunion() {
   const [modalConfirmOpen, setModalConfirmOpen] = useState(false);
   const [filaConfirm, setFilaConfirm] = useState<number | null>(null);
 
-  // 🔴 NUEVO ESTADO PARA VALIDACIÓN
-  const [modalErrorOpen, setModalErrorOpen] = useState(false);
-
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -86,69 +83,42 @@ export default function CreditosEspecialesReunion() {
     cargar();
   }, [meetingId]);
 
+  // 🔵 BUSCADOR MEJORADO (desde 1 letra)
   const buscarSocio = async (texto: string) => {
-    if (texto.length < 2) {
+    if (texto.length < 1) {
       setResultados([]);
       return;
     }
-    const r = await fetch(`${API}/person/search?q=${texto}`).then(r => r.json());
-    setResultados(r);
+
+    try {
+      const r = await fetch(`${API}/person/search?q=${texto}`).then(r => r.json());
+      setResultados(r);
+    } catch {
+      setResultados([]);
+    }
   };
 
   const recalcular = (base: Fila[]) => {
-    const fijos = base.filter(f => f.fijo);
-    const libres = base.filter(f => !f.fijo);
-
-    const totalFijo = fijos.reduce((s, f) => s + (f.monto || 0), 0);
-    const restanteReal = acumulado - totalFijo;
-
-    if (libres.length === 0) {
-      return base.map(f => {
-        const monto = f.monto || 0;
-        const interes = +(monto * 0.02).toFixed(2);
-        return { ...f, monto, interes, total: +(monto + interes).toFixed(2) };
-      });
-    }
-
-    const bruto = restanteReal / libres.length;
-    let suma = 0;
-
-    const repartido = base.map(f => {
-      let monto = f.fijo ? f.monto : bruto;
-      monto = +monto.toFixed(2);
-      suma += monto;
+    return base.map(f => {
+      const monto = f.monto || 0;
       const interes = +(monto * 0.02).toFixed(2);
-      return { ...f, monto, interes, total: +(monto + interes).toFixed(2) };
+      return { ...f, interes, total: +(monto + interes).toFixed(2) };
     });
-
-    const diferencia = +(acumulado - suma).toFixed(2);
-    if (diferencia !== 0) {
-      const i = repartido.map(f => !f.fijo).lastIndexOf(true);
-      if (i >= 0) {
-        repartido[i].monto = +(repartido[i].monto + diferencia).toFixed(2);
-        repartido[i].interes = +(repartido[i].monto * 0.02).toFixed(2);
-        repartido[i].total = +(repartido[i].monto + repartido[i].interes).toFixed(2);
-      }
-    }
-
-    return repartido;
   };
 
   const nuevaFila = () => {
-    setFilas(
-      recalcular([
-        ...filas,
-        {
-          monto: 0,
-          interes: 0,
-          total: 0,
-          busqueda: "",
-          fijo: false,
-          pagado: false,
-          estado: "PENDIENTE",
-        },
-      ])
-    );
+    setFilas([
+      ...filas,
+      {
+        monto: 0,
+        interes: 0,
+        total: 0,
+        busqueda: "",
+        fijo: false,
+        pagado: false,
+        estado: "PENDIENTE",
+      },
+    ]);
   };
 
   const seleccionar = (i: number, p: Person) => {
@@ -197,13 +167,6 @@ export default function CreditosEspecialesReunion() {
   const totalPendiente = totalGeneral - totalPagado;
 
   const guardar = async () => {
-
-    // 🔴 VALIDACIÓN AGREGADA
-    if (Number(totalMonto.toFixed(2)) !== Number(acumulado.toFixed(2))) {
-      setModalErrorOpen(true);
-      return;
-    }
-
     try {
       await fetch(`${API}/creditos-especiales/guardar-hoja`, {
         method: "POST",
@@ -224,7 +187,6 @@ export default function CreditosEspecialesReunion() {
       setMensaje("Créditos especiales guardados correctamente");
       setTimeout(() => setMensaje(null), 3000);
     } catch (error) {
-      console.error("Error guardando datos:", error);
       setMensaje("Error guardando créditos especiales");
       setTimeout(() => setMensaje(null), 3000);
     }
@@ -238,16 +200,12 @@ export default function CreditosEspecialesReunion() {
   return (
     <div style={page}>
       <div style={card}>
-        <button onClick={volver} style={btnBack}>
-          ← Volver
-        </button>
+        <button onClick={volver} style={btnBack}>← Volver</button>
 
         <h2>Créditos Especiales</h2>
 
         <div style={info}>
-          <div>
-            <b>Fecha:</b> {fechaTexto}
-          </div>
+          <div><b>Fecha:</b> {fechaTexto}</div>
           <div>
             <b>Acumulado anterior:</b> ${acumulado.toFixed(2)}
             <span style={{ marginLeft: 15, color: "#28a745" }}>
@@ -257,12 +215,8 @@ export default function CreditosEspecialesReunion() {
         </div>
 
         <div style={{ marginBottom: 15 }}>
-          <button onClick={nuevaFila} style={btnPrimary}>
-            Nuevo socio
-          </button>
-          <button onClick={guardar} style={btnSave}>
-            Guardar hoja
-          </button>
+          <button onClick={nuevaFila} style={btnPrimary}>Nuevo socio</button>
+          <button onClick={guardar} style={btnSave}>Guardar hoja</button>
         </div>
 
         <table style={table}>
@@ -281,6 +235,7 @@ export default function CreditosEspecialesReunion() {
             {filas.map((f, i) => (
               <tr key={i} style={{ backgroundColor: f.pagado ? "#d4edda" : undefined }}>
                 <td>{i + 1}</td>
+
                 <td style={{ position: "relative" }}>
                   {f.socio ? (
                     `${f.socio.firstname} ${f.socio.lastname}`
@@ -298,6 +253,7 @@ export default function CreditosEspecialesReunion() {
                           buscarSocio(e.target.value);
                         }}
                       />
+
                       {filaActiva === i && resultados.length > 0 && (
                         <div style={autocomplete}>
                           {resultados.map(p => (
@@ -315,19 +271,7 @@ export default function CreditosEspecialesReunion() {
                   )}
                 </td>
 
-                <td>
-                  <input
-                    readOnly
-                    style={inputMonto}
-                    value={f.monto.toFixed(2)}
-                    onClick={() => {
-                      setFilaEditando(i);
-                      setMontoTemporal(f.monto);
-                      setModalMontoOpen(true);
-                    }}
-                  />
-                </td>
-
+                <td>${f.monto.toFixed(2)}</td>
                 <td>${f.interes.toFixed(2)}</td>
                 <td>${f.total.toFixed(2)}</td>
 
@@ -367,62 +311,6 @@ export default function CreditosEspecialesReunion() {
 
       {mensaje && <div style={toast}>{mensaje}</div>}
 
-      {/* 🔴 MODAL DE ERROR AGREGADO */}
-      {modalErrorOpen && (
-        <div style={modalOverlay}>
-          <div style={modal}>
-            <h3 style={{ color: "#dc3545" }}>Operación no permitida</h3>
-            <p>El monto total repartido no coincide con el acumulado anterior.</p>
-            <p>Todo el dinero debe repartirse completamente. No puede sobrar ni faltar dinero.</p>
-            <div style={{ marginTop: 10 }}>
-              <b>Acumulado:</b> ${acumulado.toFixed(2)} <br />
-              <b>Total repartido:</b> ${totalMonto.toFixed(2)}
-            </div>
-            <div style={{ textAlign: "right", marginTop: 20 }}>
-              <button
-                style={btnPrimary}
-                onClick={() => setModalErrorOpen(false)}
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalMontoOpen && (
-        <div style={modalOverlay}>
-          <div style={modal}>
-            <h3>Ajustar monto</h3>
-            <input
-              type="number"
-              step="0.01"
-              value={montoTemporal}
-              onChange={e =>
-                setMontoTemporal(e.target.value === "" ? "" : Number(e.target.value))
-              }
-              style={input}
-            />
-            <div style={{ textAlign: "right", marginTop: 15 }}>
-              <button onClick={() => setModalMontoOpen(false)}>Cancelar</button>
-              <button
-                style={btnPrimary}
-                onClick={() => {
-                  if (filaEditando === null || montoTemporal === "") return;
-                  const copia = [...filas];
-                  copia[filaEditando].monto = montoTemporal;
-                  copia[filaEditando].fijo = true;
-                  setFilas(recalcular(copia));
-                  setModalMontoOpen(false);
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {modalConfirmOpen && (
         <div style={modalOverlay}>
           <div style={modal}>
@@ -447,11 +335,10 @@ const card = { background: "#fff", maxWidth: 1150, margin: "auto", padding: 30, 
 const info = { display: "flex", justifyContent: "space-between", background: "#eef5f8", padding: 12, marginBottom: 15 };
 const table = { width: "100%", borderCollapse: "collapse" as const };
 const input = { width: "100%", padding: 6, border: "1px solid #b6c8d4" };
-const inputMonto = { ...input, textAlign: "right" as const, background: "#f8fbfd", cursor: "pointer" };
 const btnPrimary = { background: "#5fa8d3", color: "#fff", border: "none", padding: "6px 12px", marginLeft: 10 };
 const btnSave = { ...btnPrimary, background: "#4a9ac2" };
 const btnBack = { background: "none", border: "none", color: "#3b7ca6", cursor: "pointer" };
-const autocomplete = { position: "absolute" as const, background: "#fff", border: "1px solid #b6c8d4", width: "100%", zIndex: 10 };
+const autocomplete = { position: "absolute" as const, background: "#fff", border: "1px solid #b6c8d4", width: "100%", zIndex: 10, maxHeight: 150, overflowY: "auto" as const };
 const autocompleteItem = { padding: 6, cursor: "pointer" };
 const totalRow = { fontWeight: "bold", background: "#eef5f8" };
 const toast = { position: "fixed" as const, bottom: 20, right: 20, background: "#e6f4f1", border: "1px solid #7fc1b4", padding: "12px 18px" };
