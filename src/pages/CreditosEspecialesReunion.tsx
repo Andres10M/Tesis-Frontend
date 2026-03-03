@@ -84,7 +84,7 @@ export default function CreditosEspecialesReunion() {
   }, [meetingId]);
 
   const buscarSocio = async (texto: string) => {
-    if (texto.length < 1) {
+    if (texto.length < 2) {
       setResultados([]);
       return;
     }
@@ -93,11 +93,42 @@ export default function CreditosEspecialesReunion() {
   };
 
   const recalcular = (base: Fila[]) => {
-    return base.map(f => {
-      const monto = f.monto || 0;
+    const fijos = base.filter(f => f.fijo);
+    const libres = base.filter(f => !f.fijo);
+
+    const totalFijo = fijos.reduce((s, f) => s + (f.monto || 0), 0);
+    const restanteReal = acumulado - totalFijo;
+
+    if (libres.length === 0) {
+      return base.map(f => {
+        const monto = f.monto || 0;
+        const interes = +(monto * 0.02).toFixed(2);
+        return { ...f, monto, interes, total: +(monto + interes).toFixed(2) };
+      });
+    }
+
+    const bruto = restanteReal / libres.length;
+    let suma = 0;
+
+    const repartido = base.map(f => {
+      let monto = f.fijo ? f.monto : bruto;
+      monto = +monto.toFixed(2);
+      suma += monto;
       const interes = +(monto * 0.02).toFixed(2);
       return { ...f, monto, interes, total: +(monto + interes).toFixed(2) };
     });
+
+    const diferencia = +(acumulado - suma).toFixed(2);
+    if (diferencia !== 0) {
+      const i = repartido.map(f => !f.fijo).lastIndexOf(true);
+      if (i >= 0) {
+        repartido[i].monto = +(repartido[i].monto + diferencia).toFixed(2);
+        repartido[i].interes = +(repartido[i].monto * 0.02).toFixed(2);
+        repartido[i].total = +(repartido[i].monto + repartido[i].interes).toFixed(2);
+      }
+    }
+
+    return repartido;
   };
 
   const nuevaFila = () => {
