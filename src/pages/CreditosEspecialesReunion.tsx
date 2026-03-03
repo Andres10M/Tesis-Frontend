@@ -42,31 +42,24 @@ export default function CreditosEspecialesReunion() {
   const [modalConfirmOpen, setModalConfirmOpen] = useState(false);
   const [filaConfirm, setFilaConfirm] = useState<number | null>(null);
 
-  const [modalErrorOpen, setModalErrorOpen] = useState(false);
-
   useEffect(() => {
     const cargar = async () => {
       try {
-        const meeting = await fetch(`${API}/meetings/${meetingId}`);
-        if (!meeting.ok) throw new Error();
-        const meetingData = await meeting.json();
+        const meeting = await fetch(`${API}/meetings/${meetingId}`).then(r => r.json());
+        setFechaISO(meeting.fecha);
+        setFechaTexto(new Date(meeting.fecha).toLocaleDateString("es-EC"));
 
-        setFechaISO(meetingData.fecha);
-        setFechaTexto(new Date(meetingData.fecha).toLocaleDateString("es-EC"));
+        const a = await fetch(`${API}/creditos-especiales/acumulado-anterior/${meetingId}`).then(r => r.json());
+        setAcumulado(Number(a.totalRecaudado || 0));
 
-        const a = await fetch(`${API}/creditos-especiales/acumulado-anterior/${meetingId}`);
-        const aData = await a.json();
-        setAcumulado(Number(aData.totalRecaudado || 0));
+        const guardadas = await fetch(`${API}/creditos-especiales/por-reunion/${meetingId}`).then(r => r.json());
 
-        const guardadas = await fetch(`${API}/creditos-especiales/por-reunion/${meetingId}`);
-        const guardadasData = await guardadas.json();
-
-        if (!guardadasData || guardadasData.length === 0) {
+        if (!guardadas || guardadas.length === 0) {
           setFilas([]);
           return;
         }
 
-        const filasConvertidas: Fila[] = guardadasData.map((g: any) => ({
+        const filasConvertidas: Fila[] = guardadas.map((g: any) => ({
           socio: {
             nui: g.socio.nui,
             firstname: g.socio.firstname,
@@ -90,65 +83,21 @@ export default function CreditosEspecialesReunion() {
     cargar();
   }, [meetingId]);
 
-  // 🔥 BUSCA DESDE LA PRIMERA LETRA
   const buscarSocio = async (texto: string) => {
-    if (!texto.trim()) {
+    if (texto.length < 1) {
       setResultados([]);
       return;
     }
-
-    try {
-      const r = await fetch(`${API}/person/search?q=${texto}`);
-      if (!r.ok) {
-        setResultados([]);
-        return;
-      }
-
-      const data = await r.json();
-      setResultados(data);
-    } catch (error) {
-      console.error("Error buscando socio:", error);
-      setResultados([]);
-    }
+    const r = await fetch(`${API}/person/search?q=${texto}`).then(r => r.json());
+    setResultados(r);
   };
 
   const recalcular = (base: Fila[]) => {
-    const fijos = base.filter(f => f.fijo);
-    const libres = base.filter(f => !f.fijo);
-
-    const totalFijo = fijos.reduce((s, f) => s + (f.monto || 0), 0);
-    const restanteReal = acumulado - totalFijo;
-
-    if (libres.length === 0) {
-      return base.map(f => {
-        const monto = f.monto || 0;
-        const interes = +(monto * 0.02).toFixed(2);
-        return { ...f, monto, interes, total: +(monto + interes).toFixed(2) };
-      });
-    }
-
-    const bruto = restanteReal / libres.length;
-    let suma = 0;
-
-    const repartido = base.map(f => {
-      let monto = f.fijo ? f.monto : bruto;
-      monto = +monto.toFixed(2);
-      suma += monto;
+    return base.map(f => {
+      const monto = f.monto || 0;
       const interes = +(monto * 0.02).toFixed(2);
       return { ...f, monto, interes, total: +(monto + interes).toFixed(2) };
     });
-
-    const diferencia = +(acumulado - suma).toFixed(2);
-    if (diferencia !== 0) {
-      const i = repartido.map(f => !f.fijo).lastIndexOf(true);
-      if (i >= 0) {
-        repartido[i].monto = +(repartido[i].monto + diferencia).toFixed(2);
-        repartido[i].interes = +(repartido[i].monto * 0.02).toFixed(2);
-        repartido[i].total = +(repartido[i].monto + repartido[i].interes).toFixed(2);
-      }
-    }
-
-    return repartido;
   };
 
   const nuevaFila = () => {
@@ -214,11 +163,6 @@ export default function CreditosEspecialesReunion() {
   const totalPendiente = totalGeneral - totalPagado;
 
   const guardar = async () => {
-    if (Number(totalMonto.toFixed(2)) !== Number(acumulado.toFixed(2))) {
-      setModalErrorOpen(true);
-      return false;
-    }
-
     try {
       await fetch(`${API}/creditos-especiales/guardar-hoja`, {
         method: "POST",
@@ -238,19 +182,16 @@ export default function CreditosEspecialesReunion() {
 
       setMensaje("Créditos especiales guardados correctamente");
       setTimeout(() => setMensaje(null), 3000);
-      return true;
-
     } catch (error) {
       console.error("Error guardando datos:", error);
       setMensaje("Error guardando créditos especiales");
       setTimeout(() => setMensaje(null), 3000);
-      return false;
     }
   };
 
   const volver = async () => {
-    const ok = await guardar();
-    if (ok) navigate(-1);
+    await guardar();
+    navigate(-1);
   };
 
   return (
@@ -384,25 +325,6 @@ export default function CreditosEspecialesReunion() {
       </div>
 
       {mensaje && <div style={toast}>{mensaje}</div>}
-
-      {modalErrorOpen && (
-        <div style={modalOverlay}>
-          <div style={modal}>
-            <h3 style={{ color: "#dc3545" }}>Operación no permitida</h3>
-            <p>El monto total repartido no coincide con el acumulado anterior.</p>
-            <p>Todo el dinero debe repartirse completamente.</p>
-            <div style={{ marginTop: 10 }}>
-              <b>Acumulado:</b> ${acumulado.toFixed(2)} <br />
-              <b>Total repartido:</b> ${totalMonto.toFixed(2)}
-            </div>
-            <div style={{ textAlign: "right", marginTop: 20 }}>
-              <button style={btnPrimary} onClick={() => setModalErrorOpen(false)}>
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {modalMontoOpen && (
         <div style={modalOverlay}>
