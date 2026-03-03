@@ -18,7 +18,7 @@ interface Fila {
   fijo?: boolean;
 }
 
-const API = "http://localhost:4000";
+const API = "https://la IP:4000";
 
 export default function CreditosEspecialesReunion() {
   const navigate = useNavigate();
