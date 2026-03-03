@@ -42,9 +42,6 @@ export default function CreditosEspecialesReunion() {
   const [modalConfirmOpen, setModalConfirmOpen] = useState(false);
   const [filaConfirm, setFilaConfirm] = useState<number | null>(null);
 
-  // 🔴 NUEVO ESTADO PARA VALIDACIÓN
-  const [modalErrorOpen, setModalErrorOpen] = useState(false);
-
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -86,13 +83,19 @@ export default function CreditosEspecialesReunion() {
     cargar();
   }, [meetingId]);
 
+  // 🔥 BUSCAR DESDE LA PRIMERA LETRA
   const buscarSocio = async (texto: string) => {
-    if (texto.length < 2) {
+    if (texto.trim() === "") {
       setResultados([]);
       return;
     }
-    const r = await fetch(`${API}/person/search?q=${texto}`).then(r => r.json());
-    setResultados(r);
+
+    try {
+      const r = await fetch(`${API}/person/search?q=${texto}`).then(r => r.json());
+      setResultados(r);
+    } catch (error) {
+      console.error("Error buscando socio:", error);
+    }
   };
 
   const recalcular = (base: Fila[]) => {
@@ -196,14 +199,8 @@ export default function CreditosEspecialesReunion() {
   const totalPagado = filas.filter(f => f.pagado).reduce((s, f) => s + (f.total || 0), 0);
   const totalPendiente = totalGeneral - totalPagado;
 
+  // 🔥 VALIDACIÓN ELIMINADA
   const guardar = async () => {
-
-    // 🔴 VALIDACIÓN AGREGADA
-    if (Number(totalMonto.toFixed(2)) !== Number(acumulado.toFixed(2))) {
-      setModalErrorOpen(true);
-      return;
-    }
-
     try {
       await fetch(`${API}/creditos-especiales/guardar-hoja`, {
         method: "POST",
@@ -238,16 +235,12 @@ export default function CreditosEspecialesReunion() {
   return (
     <div style={page}>
       <div style={card}>
-        <button onClick={volver} style={btnBack}>
-          ← Volver
-        </button>
+        <button onClick={volver} style={btnBack}>← Volver</button>
 
         <h2>Créditos Especiales</h2>
 
         <div style={info}>
-          <div>
-            <b>Fecha:</b> {fechaTexto}
-          </div>
+          <div><b>Fecha:</b> {fechaTexto}</div>
           <div>
             <b>Acumulado anterior:</b> ${acumulado.toFixed(2)}
             <span style={{ marginLeft: 15, color: "#28a745" }}>
@@ -257,12 +250,8 @@ export default function CreditosEspecialesReunion() {
         </div>
 
         <div style={{ marginBottom: 15 }}>
-          <button onClick={nuevaFila} style={btnPrimary}>
-            Nuevo socio
-          </button>
-          <button onClick={guardar} style={btnSave}>
-            Guardar hoja
-          </button>
+          <button onClick={nuevaFila} style={btnPrimary}>Nuevo socio</button>
+          <button onClick={guardar} style={btnSave}>Guardar hoja</button>
         </div>
 
         <table style={table}>
@@ -281,6 +270,7 @@ export default function CreditosEspecialesReunion() {
             {filas.map((f, i) => (
               <tr key={i} style={{ backgroundColor: f.pagado ? "#d4edda" : undefined }}>
                 <td>{i + 1}</td>
+
                 <td style={{ position: "relative" }}>
                   {f.socio ? (
                     `${f.socio.firstname} ${f.socio.lastname}`
@@ -298,6 +288,7 @@ export default function CreditosEspecialesReunion() {
                           buscarSocio(e.target.value);
                         }}
                       />
+
                       {filaActiva === i && resultados.length > 0 && (
                         <div style={autocomplete}>
                           {resultados.map(p => (
@@ -366,29 +357,6 @@ export default function CreditosEspecialesReunion() {
       </div>
 
       {mensaje && <div style={toast}>{mensaje}</div>}
-
-      {/* 🔴 MODAL DE ERROR AGREGADO */}
-      {modalErrorOpen && (
-        <div style={modalOverlay}>
-          <div style={modal}>
-            <h3 style={{ color: "#dc3545" }}>Operación no permitida</h3>
-            <p>El monto total repartido no coincide con el acumulado anterior.</p>
-            <p>Todo el dinero debe repartirse completamente. No puede sobrar ni faltar dinero.</p>
-            <div style={{ marginTop: 10 }}>
-              <b>Acumulado:</b> ${acumulado.toFixed(2)} <br />
-              <b>Total repartido:</b> ${totalMonto.toFixed(2)}
-            </div>
-            <div style={{ textAlign: "right", marginTop: 20 }}>
-              <button
-                style={btnPrimary}
-                onClick={() => setModalErrorOpen(false)}
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {modalMontoOpen && (
         <div style={modalOverlay}>
